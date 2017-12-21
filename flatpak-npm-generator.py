@@ -19,7 +19,7 @@ def getModuleSources(module, seen=None, include_devel=True):
     sources = []
     seen = seen or {}
 
-    version = module["version"]
+    version = module.get("version", "")
     added_url = None
 
     if module.get("dev", False) and not include_devel:
