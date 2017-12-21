@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import argparse
 import sys
 import json
 import base64
@@ -83,28 +84,24 @@ def getModuleSources(module, seen={}, include_devel=True):
 
 
 def main():
-    include_devel = True
-    args = sys.argv[1:]
-    while len(args) and args[0].startswith("-"):
-        if args[0] == '--production':
-            include_devel = False
-            args = args[1:]  # shift
+    parser = argparse.ArgumentParser(description='Flatpak NPM generator')
+    parser.add_argument('lockfile', type=str)
+    parser.add_argument('-o', type=str, dest='outfile', default='generated-sources.json')
+    parser.add_argument('--production', action='store_true', default=False)
+    args = parser.parse_args()
 
-    if len(args) != 2:
-        print("Usage: flatpak-npm-generator [--production] package-lock.json generated-sources.json")
-        sys.exit(1)
+    include_devel = not args.production
 
-    lockfile = sys.argv[1]
-    outfile = sys.argv[2]
+    lockfile = args.lockfile
+    outfile = args.outfile
 
-    f = open(lockfile, 'r')
-
-    root = json.loads(f.read())
+    with open(lockfile, 'r') as f:
+        root = json.loads(f.read())
 
     sources = getModuleSources(root, include_devel=include_devel)
 
-    fo = open(outfile, 'w')
-    fo.write(json.dumps(sources, indent=4))
+    with open(outfile, 'w') as f:
+        f.write(json.dumps(sources, indent=4))
 
 
 if __name__ == '__main__':
