@@ -15,8 +15,9 @@ electron_arches = {
 }
 
 
-def getModuleSources(module, seen={}, include_devel=True):
+def getModuleSources(module, seen=None, include_devel=True):
     sources = []
+    seen = seen or {}
 
     version = module["version"]
     added_url = None
@@ -88,18 +89,34 @@ def main():
     parser.add_argument('lockfile', type=str)
     parser.add_argument('-o', type=str, dest='outfile', default='generated-sources.json')
     parser.add_argument('--production', action='store_true', default=False)
+    parser.add_argument('--recursive', action='store_true', default=False)
     args = parser.parse_args()
 
     include_devel = not args.production
 
-    lockfile = args.lockfile
     outfile = args.outfile
 
-    with open(lockfile, 'r') as f:
-        root = json.loads(f.read())
+    if args.recursive:
+        import glob
+        lockfiles = glob.iglob('**/%s' % args.lockfile, recursive=True)
+    else:
+        lockfiles = [args.lockfile]
 
-    sources = getModuleSources(root, include_devel=include_devel)
+    sources = []
+    seen = {}
+    for lockfile in lockfiles:
+        print('Scanning "%s" ' % lockfile, file=sys.stderr)
 
+        with open(lockfile, 'r') as f:
+            root = json.loads(f.read())
+
+        s = getModuleSources(root, seen, include_devel=include_devel)
+        sources += s
+        print(' ... %d new entries' % len(s), file=sys.stderr)
+
+    print('%d total entries' % len(sources), file=sys.stderr)
+
+    print('Writing to "%s"' % outfile)
     with open(outfile, 'w') as f:
         f.write(json.dumps(sources, indent=4))
 
