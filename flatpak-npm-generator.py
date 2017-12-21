@@ -13,10 +13,8 @@ electron_arches = {
     "arm": "arm"
 }
 
-include_devel = True
 
-
-def getModuleSources(module, seen={}):
+def getModuleSources(module, seen={}, include_devel=True):
     sources = []
 
     version = module["version"]
@@ -33,16 +31,15 @@ def getModuleSources(module, seen={}):
             url = module["version"]
         added_url = url
         integrity = module["integrity"]
-        if not integrity in seen:
+        if integrity not in seen:
             seen[integrity] = True
-            (integrity_type, integrity_base64) = integrity.split("-", 2);
+            integrity_type, integrity_base64 = integrity.split("-", 2)
             hex = binascii.hexlify(base64.b64decode(integrity_base64)).decode('utf8')
-            source = { "type": "file",
-                       "url": url,
-                       "dest": "npm-cache/_cacache/content-v2/%s/%s/%s" % (integrity_type, hex[0:2], hex[2:4]),
-                       "dest-filename": hex[4:]
-            }
-            source[integrity_type] = hex;
+            source = {"type": "file",
+                      "url": url,
+                      "dest": "npm-cache/_cacache/content-v2/%s/%s/%s" % (integrity_type, hex[0:2], hex[2:4]),
+                      "dest-filename": hex[4:]}
+            source[integrity_type] = hex
             sources.append(source)
 
     if added_url:
@@ -53,62 +50,61 @@ def getModuleSources(module, seen={}):
 
             shasums_url = "https://github.com/electron/electron/releases/download/v" + electron_version + "/SHASUMS256.txt"
             f = urllib.request.urlopen(shasums_url)
-            shasums={}
+            shasums = {}
             shasums_data = f.read().decode("utf8")
             for line in shasums_data.split('\n'):
-                l = line.split();
+                l = line.split()
                 if len(l) == 2:
                     shasums[l[1][1:]] = l[0]
 
             mini_shasums = ""
             for arch in electron_arches.keys():
                 basename = "electron-v" + electron_version + "-linux-" + arch + ".zip"
-                source = { "type": "file",
-                           "only-arches": [electron_arches[arch]],
-                           "url": "https://github.com/electron/electron/releases/download/v" + electron_version + "/" + basename,
-                           "sha256": shasums[basename],
-                           "dest": "npm-cache"
-                }
+                source = {"type": "file",
+                          "only-arches": [electron_arches[arch]],
+                          "url": "https://github.com/electron/electron/releases/download/v" + electron_version + "/" + basename,
+                          "sha256": shasums[basename],
+                          "dest": "npm-cache"}
                 sources.append(source)
                 mini_shasums = mini_shasums + shasums[basename] + " *" + basename + "\n"
-            source = { "type": "file",
-                       "url": "data:" + urllib.parse.quote(mini_shasums.encode("utf8")),
-                       "dest": "npm-cache",
-                       "dest-filename": "SHASUMS256.txt-" + electron_version
-            }
+            source = {"type": "file",
+                      "url": "data:" + urllib.parse.quote(mini_shasums.encode("utf8")),
+                      "dest": "npm-cache",
+                      "dest-filename": "SHASUMS256.txt-" + electron_version}
             sources.append(source)
 
     if "dependencies" in module:
         deps = module["dependencies"]
         for dep in deps:
-            child_sources = getModuleSources(deps[dep], seen)
+            child_sources = getModuleSources(deps[dep], seen, include_devel=include_devel)
             sources = sources + child_sources
 
     return sources
 
 
 def main():
+    include_devel = True
     args = sys.argv[1:]
     while len(args) and args[0].startswith("-"):
         if args[0] == '--production':
             include_devel = False
-            args = args[1:] # shift
+            args = args[1:]  # shift
 
     if len(args) != 2:
         print("Usage: flatpak-npm-generator [--production] package-lock.json generated-sources.json")
         sys.exit(1)
 
     lockfile = sys.argv[1]
-    outfile =  sys.argv[2]
+    outfile = sys.argv[2]
 
     f = open(lockfile, 'r')
 
-    root = json.loads(f.read ())
+    root = json.loads(f.read())
 
-    sources = getModuleSources(root)
+    sources = getModuleSources(root, include_devel=include_devel)
 
     fo = open(outfile, 'w')
-    fo.write (json.dumps(sources, indent=4))
+    fo.write(json.dumps(sources, indent=4))
 
 
 if __name__ == '__main__':
