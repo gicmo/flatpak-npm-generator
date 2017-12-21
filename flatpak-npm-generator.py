@@ -15,22 +15,6 @@ electron_arches = {
 
 include_devel = True
 
-args = sys.argv[1:]
-while len(args) and args[0].startswith("-"):
-    if args[0] == '--production':
-        include_devel = False
-    args = args[1:] # shift
-
-if len(args) != 2:
-    print("Usage: flatpak-npm-generator [--production] package-lock.json generated-sources.json")
-    sys.exit(1)
-
-lockfile = sys.argv[1]
-outfile =  sys.argv[2]
-
-f = open(lockfile, 'r')
-
-root = json.loads(f.read ())
 
 def getModuleSources(module, seen={}):
     sources = []
@@ -102,7 +86,30 @@ def getModuleSources(module, seen={}):
 
     return sources
 
-sources = getModuleSources(root)
 
-fo = open(outfile, 'w')
-fo.write (json.dumps(sources, indent=4))
+def main():
+    args = sys.argv[1:]
+    while len(args) and args[0].startswith("-"):
+        if args[0] == '--production':
+            include_devel = False
+            args = args[1:] # shift
+
+    if len(args) != 2:
+        print("Usage: flatpak-npm-generator [--production] package-lock.json generated-sources.json")
+        sys.exit(1)
+
+    lockfile = sys.argv[1]
+    outfile =  sys.argv[2]
+
+    f = open(lockfile, 'r')
+
+    root = json.loads(f.read ())
+
+    sources = getModuleSources(root)
+
+    fo = open(outfile, 'w')
+    fo.write (json.dumps(sources, indent=4))
+
+
+if __name__ == '__main__':
+    main()
